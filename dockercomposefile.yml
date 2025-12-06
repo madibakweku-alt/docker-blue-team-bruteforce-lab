@@ -1,0 +1,41 @@
+version: "3.9"
+
+services:
+  target:
+    container_name: ssh_target
+    image: ubuntu:22.04
+    command: bash -c "
+      apt update &&
+      apt install -y openssh-server fail2ban &&
+      useradd -m admin &&
+      echo 'admin:admin123' | chpasswd &&
+      sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config &&
+      mkdir -p /var/run/sshd &&
+      service ssh start &&
+      tail -f /var/log/auth.log
+    "
+    ports:
+      - "2222:22"
+    volumes:
+      - ./logs:/var/log
+    networks:
+      - labnet
+
+  attacker:
+    container_name: hydra_attacker
+    image: alpine:latest
+    command: sh -c "
+      apk update &&
+      apk add hydra openssh-client &&
+      tail -f /dev/null
+    "
+    networks:
+      - labnet
+    depends_on:
+      - target
+    volumes:
+      - ./passwords.txt:/passwords.txt
+
+networks:
+  labnet:
+    driver: bridge
